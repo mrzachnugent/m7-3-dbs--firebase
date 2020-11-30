@@ -23,6 +23,6 @@
     "request-promise": "^4.2.5"
   },
   "engines": {
-    "node": "13.5.x"
+    "node": "12.19.0"
   }
 }

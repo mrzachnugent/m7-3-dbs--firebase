@@ -1,29 +1,93 @@
-'use strict';
+"use strict";
 
-const admin = require('firebase-admin');
+const admin = require("firebase-admin");
 
-require('dotenv').config();
+require("dotenv").config();
 
 admin.initializeApp({
   credential: admin.credential.cert({
-    type: 'service_account',
+    type: "service_account",
     project_id: process.env.FIREBASE_PROJECT_ID,
     private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
     client_email: process.env.FIREBASE_CLIENT_EMAIL,
     client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-    token_uri: 'https://oauth2.googleapis.com/token',
-    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+    auth_uri: "https://accounts.google.com/o/oauth2/auth",
+    token_uri: "https://oauth2.googleapis.com/token",
+    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
     client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT,
   }),
   databaseURL: process.env.FB_DATABASE_URL,
 });
 
-const getUser = async (email) => {};
+const db = admin.database();
 
-const createUser = async (req, res) => {};
+const queryDatabase = async (key) => {
+  const ref = db.ref(key);
+  let data;
+  await ref.once(
+    "value",
+    (snapshot) => {
+      data = snapshot.val();
+    },
+    (err) => {
+      console.log(err);
+    }
+  );
+
+  return data;
+};
+
+const getUser = async (email) => {
+  const data = (await queryDatabase(`appUsers`)) || {};
+  const dataValue = Object.keys(data)
+    .map((item) => data[item])
+    .find((obj) => obj.email === email);
+
+  return dataValue || false;
+};
+
+//Live updating changes to database
+// useEffect(() => {
+//   // this connects us to the database, specifically the appUsers obj
+//   const appUsersRef = firebase.database().ref(`appUsers`);
+//   appUsersRef.on("value", (snapshot) => {
+//     const appUsers = snapshot.val();
+//     // if we had a state item that was tracking allUsers, we would update it here.
+//     setAllUsers(appUsers);
+//   });
+
+//   return (
+//     () => {
+//       // this is where we need to turn off the connection. It's always good to clean up after ourselves.
+//       const appUsersRef = firebase.database().ref(`appUsers`);
+//       appUsersRef.off();
+//     },
+//     [setAllUsers]
+//   );
+// });
+
+const createUser = async (req, res) => {
+  const returningUser = await getUser(req.body.email);
+  console.log(returningUser);
+  if (returningUser) {
+    res
+      .status(200)
+      .json({ status: 200, data: req.body, message: "returning user" });
+    return;
+  } else {
+    const appUsersRef = db.ref("appUsers");
+    appUsersRef.push(req.body).then(() => {
+      res.status(200).json({
+        status: 200,
+        data: req.body,
+        message: "new user",
+      });
+    });
+  }
+};
 
 module.exports = {
   createUser,
+  getUser,
 };
